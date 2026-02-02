@@ -1,4 +1,4 @@
-const EVENT_CODE = "QUIZ2024"; // CHANGE THIS CODE
+const EVENT_CODE = "ASMI2026"; // CHANGE THIS CODE
 
 document.getElementById('signupForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -44,4 +44,5 @@ document.getElementById('signupForm').addEventListener('submit', async (e) => {
     localStorage.setItem('quiz_sessionId', sessionId);
     
     Swal.fire('Success', 'Team Registered!', 'success').then(() => window.location.href = "index.html");
+
 });
