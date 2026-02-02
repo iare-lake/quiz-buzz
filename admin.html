@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-900 text-white font-sans">
+    <!-- LOGIN OVERLAY -->
+    <div id="adminLogin" class="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center">
+        <div class="bg-gray-800 p-8 rounded shadow-xl">
+            <h2 class="text-2xl font-bold mb-4">Admin Access</h2>
+            <input type="password" id="adminPass" class="w-full p-2 rounded text-black mb-4" placeholder="Password">
+            <button onclick="adminAuth()" class="w-full bg-blue-600 py-2 rounded font-bold">Unlock</button>
+        </div>
+    </div>
+    <!-- MAIN CONTENT -->
+    <div class="flex h-screen">
+        <div class="w-64 bg-gray-800 p-4 flex flex-col">
+            <h1 class="text-2xl font-bold text-yellow-400 mb-8">QUIZ MASTER</h1>
+            <nav class="space-y-2 flex-1">
+                <button onclick="switchTab('control')" class="w-full text-left p-3 rounded bg-gray-700 hover:bg-gray-600"><i class="fas fa-gamepad mr-2"></i> Controls</button>
+                <button onclick="switchTab('logs')" class="w-full text-left p-3 rounded hover:bg-gray-600"><i class="fas fa-list mr-2"></i> Buzz Logs</button>
+                <button onclick="switchTab('teams')" class="w-full text-left p-3 rounded hover:bg-gray-600"><i class="fas fa-users mr-2"></i> Teams</button>
+                <button onclick="switchTab('scoreboard')" class="w-full text-left p-3 rounded hover:bg-gray-600"><i class="fas fa-trophy mr-2"></i> Scoreboard</button>
+            </nav>
+            <button onclick="endGame()" class="bg-red-900 text-red-200 p-3 rounded mt-4 border border-red-700">END EVENT</button>
+        </div>
+        <div class="flex-1 p-8 overflow-y-auto">
+            <!-- TABS (Control, Logs, Teams, Scoreboard) same as before, simplified here for structure -->
+            <div id="tab-control">
+                <div id="gameStatus" class="text-4xl font-bold text-blue-400 mb-4">WAITING</div>
+                <div id="adminTimer" class="text-6xl font-mono text-yellow-400 font-bold mb-6">00:00</div>
+                <div class="grid grid-cols-2 gap-2 max-w-md">
+                    <button onclick="startQuestion()" class="bg-green-600 hover:bg-green-500 py-3 rounded font-bold">START Q</button>
+                    <button onclick="stopQuestion()" class="bg-red-600 hover:bg-red-500 py-3 rounded font-bold">STOP</button>
+                </div>
+                <button onclick="resetQuestion()" class="mt-4 bg-gray-600 px-4 py-2 rounded">Reset Buzzers</button>
+                <div id="buzzList" class="mt-8 space-y-2"></div>
+            </div>
+            
+            <div id="tab-logs" class="hidden"><table class="w-full text-left"><tbody id="logTable"></tbody></table></div>
+            <div id="tab-teams" class="hidden"><div id="teamGrid" class="grid grid-cols-4 gap-4"></div></div>
+            <div id="tab-scoreboard" class="hidden"><table class="w-full"><tbody id="scoreTable"></tbody></table></div>
+        </div>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>

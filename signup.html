@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Registration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+    <div class="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg border border-gray-700">
+        <h2 class="text-3xl font-bold mb-6 text-center text-blue-400">Team Registration</h2>
+        <form id="signupForm" class="space-y-4">
+            <div>
+                <label class="text-xs uppercase text-gray-400">Event Code</label>
+                <input type="text" id="eventCode" class="w-full p-3 rounded bg-gray-700 border border-gray-600 focus:border-blue-500 outline-none" placeholder="Ask Admin" required>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs uppercase text-gray-400">Team ID (e.g. T01)</label>
+                    <input type="text" id="teamId" class="w-full p-3 rounded bg-gray-700 border border-gray-600 focus:border-blue-500 outline-none uppercase" placeholder="T01" required>
+                </div>
+                <div>
+                    <label class="text-xs uppercase text-gray-400">Head Roll No</label>
+                    <input type="text" id="rollNo" class="w-full p-3 rounded bg-gray-700 border border-gray-600 focus:border-blue-500 outline-none" placeholder="123456" required>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs uppercase text-gray-400">Team Name</label>
+                <input type="text" id="teamName" class="w-full p-3 rounded bg-gray-700 border border-gray-600 focus:border-blue-500 outline-none" placeholder="The Avengers" required>
+            </div>
+            <div>
+                <label class="text-xs uppercase text-gray-400">Teammates (Names)</label>
+                <input type="text" id="teammates" class="w-full p-3 rounded bg-gray-700 border border-gray-600 focus:border-blue-500 outline-none">
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <div>
+                    <label class="text-xs uppercase text-gray-400">Branch</label>
+                    <select id="branch" class="w-full p-3 rounded bg-gray-700 border border-gray-600 text-white"><option>CSE</option><option>CSE-AIML</option><option>CSE-DS</option><option>ECE</option><option>Mech</option><option>Aero</option><option>EEE</option><option>IT</option></select>
+                </div>
+                <div>
+                    <label class="text-xs uppercase text-gray-400">Sem</label>
+                    <select id="sem" class="w-full p-3 rounded bg-gray-700 border border-gray-600 text-white"><option>1st</option><option>2nd</option><option>3rd</option><option>4th</option><option>5th</option><option>6th</option><option>7th</option><option>8th</option></select>
+                </div>
+                <div>
+                    <label class="text-xs uppercase text-gray-400">Section</label>
+                    <input type="text" id="section" class="w-full p-3 rounded bg-gray-700 border border-gray-600" placeholder="A">
+                </div>
+            </div>
+            <div>
+                <label class="text-xs uppercase text-gray-400">Password</label>
+                <input type="text" id="password" class="w-full p-3 rounded bg-gray-700 border border-gray-600 focus:border-blue-500 outline-none" required>
+            </div>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold text-lg transition shadow-lg shadow-blue-500/50">Register Team</button>
+        </form>
+        <p class="text-center mt-4 text-gray-400 text-sm"><a href="login.html" class="text-blue-400 underline">Login here</a></p>
+    </div>
+    <!-- SCRIPTS -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/signup.js"></script>
+</body>
+</html>
