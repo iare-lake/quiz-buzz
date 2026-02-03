@@ -29,96 +29,107 @@ function resetQuestion() {
     document.getElementById('logTable').innerHTML = ''; 
 }
 
-// --- FINAL WINNER LOGIC (BULLETPROOF VERSION) ---
+// --- FINAL WINNER LOGIC (SANITIZED) ---
 function endGame() {
-    if(!confirm("End entire event? This will calculate and display winners.")) return;
+    if(!confirm("End entire event? This will display the winners.")) return;
     
-    console.log("Starting calculation..."); // DEBUG
+    console.clear();
+    console.log("--- STARTING SCORE CALCULATION ---");
 
     window.db.ref('teams').once('value', snap => {
-        const teams = [];
-        snap.forEach(c => teams.push({ id: c.key, ...c.val() }));
-        
-        // 1. Force Scores to Numbers and Filter out 0s (Optional: remove filter if you want 0s to win)
-        const cleanTeams = teams.map(t => {
+        const rawTeams = [];
+        snap.forEach(c => rawTeams.push({ id: c.key, ...c.val() }));
+
+        // 1. SANITIZE DATA (The Fix)
+        // We force every score to be a real Number. If it's garbage, it becomes 0.
+        const cleanTeams = rawTeams.map(t => {
+            let rawScore = t.score;
+            let finalScore = 0;
+
+            // Try parsing
+            if (typeof rawScore === 'number') {
+                finalScore = rawScore;
+            } else if (typeof rawScore === 'string') {
+                finalScore = parseFloat(rawScore);
+            }
+            
+            // If invalid (NaN), set to 0
+            if (isNaN(finalScore)) finalScore = 0;
+
+            console.log(`Team: ${t.name} | Raw: ${rawScore} | Parsed: ${finalScore}`);
+            
             return {
                 name: t.name,
                 id: t.id,
-                score: parseInt(t.score) || 0 // Force Number
+                score: finalScore
             };
         });
 
-        // 2. Sort Descending
-        cleanTeams.sort((a,b) => b.score - a.score);
-
-        console.log("Sorted Teams:", cleanTeams); // DEBUG
-
-        // 3. Group by Score (Map: Score -> Array of Names)
-        let scoreMap = new Map();
+        // 2. GROUP BY SCORE
+        // Map: Score (Number) -> Array of Names
+        let scoreMap = {};
         cleanTeams.forEach(t => {
-            if (!scoreMap.has(t.score)) scoreMap.set(t.score, []);
-            scoreMap.get(t.score).push(t.name);
+            if (!scoreMap[t.score]) scoreMap[t.score] = [];
+            scoreMap[t.score].push(t.name);
         });
 
-        // 4. Build HTML
+        // 3. GET UNIQUE SCORES & SORT DESCENDING
+        // This is the step that was failing before. We manually sort the keys.
+        let uniqueScores = Object.keys(scoreMap).map(Number); // Convert keys back to numbers
+        uniqueScores.sort((a, b) => b - a); // 25, 12, 10...
+
+        console.log("Final Ranked Scores:", uniqueScores);
+
+        // 4. GENERATE HTML
         let htmlOutput = "";
         
-        // Get unique scores in order
-        let uniqueScores = Array.from(scoreMap.keys());
-        
-        console.log("Unique Scores:", uniqueScores); // DEBUG
-
-        // If no data
         if (uniqueScores.length === 0) {
             htmlOutput = "<div style='color:white'>No scores recorded.</div>";
         } else {
-            // Loop through Top 3 Scores
+            // Loop Top 3
             for (let i = 0; i < Math.min(uniqueScores.length, 3); i++) {
                 let currentScore = uniqueScores[i];
-                let namesArray = scoreMap.get(currentScore);
+                let namesArray = scoreMap[currentScore]; // Get names for this score
                 let rank = i + 1;
                 
-                // Join names with line breaks if there are many, or "&" if few
                 let namesStr = namesArray.join(" <br> "); 
 
-                // Styles
+                // Styling
                 let color = "#fff";
                 let medal = "";
                 let bg = "rgba(255,255,255,0.05)";
                 let size = "1rem";
 
-                if (rank === 1) { color = "#FFD700"; medal = "🏆"; bg = "rgba(255, 215, 0, 0.15)"; size="1.8rem"; }
-                if (rank === 2) { color = "#C0C0C0"; medal = "🥈"; bg = "rgba(192, 192, 192, 0.15)"; size="1.4rem"; }
-                if (rank === 3) { color = "#CD7F32"; medal = "🥉"; bg = "rgba(205, 127, 50, 0.15)"; size="1.2rem"; }
+                if (rank === 1) { color = "#FFD700"; medal = "🏆"; bg = "rgba(255, 215, 0, 0.2)"; size="1.8rem"; }
+                if (rank === 2) { color = "#C0C0C0"; medal = "🥈"; bg = "rgba(192, 192, 192, 0.2)"; size="1.5rem"; }
+                if (rank === 3) { color = "#CD7F32"; medal = "🥉"; bg = "rgba(205, 127, 50, 0.2)"; size="1.3rem"; }
 
                 htmlOutput += `
                 <div style="
                     background: ${bg}; 
                     border: 2px solid ${color}; 
-                    border-radius: 12px; 
-                    margin-bottom: 12px; 
-                    padding: 15px; 
+                    border-radius: 15px; 
+                    margin-bottom: 15px; 
+                    padding: 20px; 
                     text-align: center;
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.6);">
                     
-                    <div style="color:${color}; font-size:${size}; font-weight:900; letter-spacing:2px; margin-bottom:5px;">
+                    <div style="color:${color}; font-size:${size}; font-weight:900; letter-spacing:2px; margin-bottom:10px;">
                         ${medal} RANK ${rank}
                     </div>
                     
-                    <div style="color:white; font-size:1.4rem; font-weight:bold; line-height:1.4;">
+                    <div style="color:white; font-size:1.5rem; font-weight:bold; line-height:1.4;">
                         ${namesStr}
                     </div>
                     
-                    <div style="color:#aaa; font-size:0.9rem; margin-top:5px; font-family:monospace;">
-                        SCORE: <span style="color:#fff">${currentScore}</span>
+                    <div style="color:#ddd; font-size:1.1rem; margin-top:10px; font-family:monospace; background:rgba(0,0,0,0.3); display:inline-block; padding:2px 10px; rounded:4px;">
+                        SCORE: ${currentScore}
                     </div>
                 </div>`;
             }
         }
 
-        console.log("Final HTML:", htmlOutput); // DEBUG
-
-        // 5. Update Database
+        // 5. SAVE TO DB
         window.db.ref('gameState').update({ 
             status: 'ENDED', 
             winnerName: htmlOutput 
@@ -158,7 +169,8 @@ window.db.ref('teams').on('value', snap => {
         teamCache[c.key] = val.name; 
     });
     
-    teams.sort((a,b) => (b.score || 0) - (a.score || 0));
+    // Display sorting (Visual only)
+    teams.sort((a,b) => (parseFloat(b.score)||0) - (parseFloat(a.score)||0));
 
     // Scoreboard
     document.getElementById('scoreTable').innerHTML = teams.map((t, i) => `
@@ -184,7 +196,7 @@ window.db.ref('teams').on('value', snap => {
     }).join('');
 });
 
-// 3. Buzz Queue & Logs
+// 3. Buzz Queue
 window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap => {
     const list = document.getElementById('buzzList');
     const logTable = document.getElementById('logTable');
@@ -198,7 +210,7 @@ window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap
         const data = child.val();
         const teamName = teamCache[teamId] || "Loading..."; 
         
-        // A. Populate Control Panel List
+        // Control Panel List
         const div = document.createElement('div');
         div.className = "flex flex-col bg-gray-700 p-3 rounded mb-2 border border-gray-600";
         div.innerHTML = `
@@ -214,7 +226,7 @@ window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap
             </div>`;
         list.appendChild(div);
 
-        // B. Populate Logs Tab
+        // Logs
         const date = new Date(data.time);
         const timeStr = date.toLocaleTimeString('en-US', { hour12: false }) + "." + date.getMilliseconds();
         
@@ -233,11 +245,11 @@ window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap
 // --- ACTIONS ---
 
 function givePoints(teamId, pts) { 
-    window.db.ref(`teams/${teamId}/score`).transaction(c => (c||0) + pts); 
+    window.db.ref(`teams/${teamId}/score`).transaction(c => (Number(c)||0) + pts); 
 }
 
 function kick(id) { 
-    if(confirm(`Kick Team ${id}? They will be forced to logout.`)) {
+    if(confirm(`Kick Team ${id}?`)) {
         window.db.ref(`teams/${id}/sessionId`).set(null); 
     }
 }
