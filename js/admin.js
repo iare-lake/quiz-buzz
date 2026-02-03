@@ -153,10 +153,10 @@ window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap
                 <span class="text-xs text-gray-400 font-mono">${teamId}</span>
             </div>
             <div class="grid grid-cols-4 gap-2">
-                <button onclick="givePoints('${teamId}', 15)" class="bg-purple-600 hover:bg-purple-500 py-1 rounded font-bold text-sm shadow">+15</button>
-                <button onclick="givePoints('${teamId}', 10)" class="bg-green-600 hover:bg-green-500 py-1 rounded font-bold text-sm shadow">+10</button>
-                <button onclick="givePoints('${teamId}', 7)" class="bg-blue-600 hover:bg-blue-500 py-1 rounded font-bold text-sm shadow">+7</button>
-                <button onclick="givePoints('${teamId}', -4)" class="bg-red-600 hover:bg-red-500 py-1 rounded font-bold text-sm shadow">-4</button>
+                <button onclick="givePoints('${teamId}', 3)" class="bg-purple-600 hover:bg-purple-500 py-1 rounded font-bold text-sm shadow">x3</button>
+                <button onclick="givePoints('${teamId}', 2)" class="bg-green-600 hover:bg-green-500 py-1 rounded font-bold text-sm shadow">x2</button>
+                <button onclick="givePoints('${teamId}', 1)" class="bg-blue-600 hover:bg-blue-500 py-1 rounded font-bold text-sm shadow">x1</button>
+                <button onclick="givePoints('${teamId}', -1)" class="bg-red-600 hover:bg-red-500 py-1 rounded font-bold text-sm shadow">-1</button>
             </div>`;
         list.appendChild(div);
 
@@ -189,3 +189,4 @@ function kick(id) {
         window.db.ref(`teams/${id}/sessionId`).set(null); 
     }
 }
+
