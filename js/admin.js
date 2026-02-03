@@ -29,71 +29,96 @@ function resetQuestion() {
     document.getElementById('logTable').innerHTML = ''; 
 }
 
-// --- FIXED WINNER LOGIC (Robust Grouping) ---
+// --- FINAL WINNER LOGIC (BULLETPROOF VERSION) ---
 function endGame() {
-    if(!confirm("End entire event? This will display the winners.")) return;
+    if(!confirm("End entire event? This will calculate and display winners.")) return;
     
+    console.log("Starting calculation..."); // DEBUG
+
     window.db.ref('teams').once('value', snap => {
         const teams = [];
         snap.forEach(c => teams.push({ id: c.key, ...c.val() }));
         
-        // 1. Sort by Score Descending (Ensure Numbers)
-        teams.sort((a,b) => (Number(b.score) || 0) - (Number(a.score) || 0));
-
-        // 2. Group by Score (Dense Ranking)
-        // Result will be: [ {score: 25, names: ['A', 'B']}, {score: 20, names: ['C']} ... ]
-        let leaderboard = [];
-        
-        teams.forEach(t => {
-            let s = Number(t.score) || 0;
-            // Check if this score is already the last one added (grouping)
-            if (leaderboard.length > 0 && leaderboard[leaderboard.length - 1].score === s) {
-                leaderboard[leaderboard.length - 1].names.push(t.name);
-            } else {
-                // New distinct score
-                leaderboard.push({ score: s, names: [t.name] });
-            }
+        // 1. Force Scores to Numbers and Filter out 0s (Optional: remove filter if you want 0s to win)
+        const cleanTeams = teams.map(t => {
+            return {
+                name: t.name,
+                id: t.id,
+                score: parseInt(t.score) || 0 // Force Number
+            };
         });
 
-        // 3. Generate HTML for Top 3 Ranks
+        // 2. Sort Descending
+        cleanTeams.sort((a,b) => b.score - a.score);
+
+        console.log("Sorted Teams:", cleanTeams); // DEBUG
+
+        // 3. Group by Score (Map: Score -> Array of Names)
+        let scoreMap = new Map();
+        cleanTeams.forEach(t => {
+            if (!scoreMap.has(t.score)) scoreMap.set(t.score, []);
+            scoreMap.get(t.score).push(t.name);
+        });
+
+        // 4. Build HTML
         let htmlOutput = "";
-        let limit = Math.min(leaderboard.length, 3);
+        
+        // Get unique scores in order
+        let uniqueScores = Array.from(scoreMap.keys());
+        
+        console.log("Unique Scores:", uniqueScores); // DEBUG
 
-        for (let i = 0; i < limit; i++) {
-            let group = leaderboard[i];
-            let rank = i + 1;
-            let namesStr = group.names.join(" & "); // Join ties with "&"
+        // If no data
+        if (uniqueScores.length === 0) {
+            htmlOutput = "<div style='color:white'>No scores recorded.</div>";
+        } else {
+            // Loop through Top 3 Scores
+            for (let i = 0; i < Math.min(uniqueScores.length, 3); i++) {
+                let currentScore = uniqueScores[i];
+                let namesArray = scoreMap.get(currentScore);
+                let rank = i + 1;
+                
+                // Join names with line breaks if there are many, or "&" if few
+                let namesStr = namesArray.join(" <br> "); 
 
-            let color = "#fff";
-            let medal = "";
-            let size = "1rem";
-            let bg = "transparent";
+                // Styles
+                let color = "#fff";
+                let medal = "";
+                let bg = "rgba(255,255,255,0.05)";
+                let size = "1rem";
 
-            if (rank === 1) { 
-                color = "#FFD700"; medal = "🏆"; size = "1.5rem"; bg = "rgba(255, 215, 0, 0.1)";
-            } else if (rank === 2) { 
-                color = "#C0C0C0"; medal = "🥈"; size = "1.2rem"; bg = "rgba(192, 192, 192, 0.1)";
-            } else if (rank === 3) { 
-                color = "#CD7F32"; medal = "🥉"; size = "1.1rem"; bg = "rgba(205, 127, 50, 0.1)";
+                if (rank === 1) { color = "#FFD700"; medal = "🏆"; bg = "rgba(255, 215, 0, 0.15)"; size="1.8rem"; }
+                if (rank === 2) { color = "#C0C0C0"; medal = "🥈"; bg = "rgba(192, 192, 192, 0.15)"; size="1.4rem"; }
+                if (rank === 3) { color = "#CD7F32"; medal = "🥉"; bg = "rgba(205, 127, 50, 0.15)"; size="1.2rem"; }
+
+                htmlOutput += `
+                <div style="
+                    background: ${bg}; 
+                    border: 2px solid ${color}; 
+                    border-radius: 12px; 
+                    margin-bottom: 12px; 
+                    padding: 15px; 
+                    text-align: center;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                    
+                    <div style="color:${color}; font-size:${size}; font-weight:900; letter-spacing:2px; margin-bottom:5px;">
+                        ${medal} RANK ${rank}
+                    </div>
+                    
+                    <div style="color:white; font-size:1.4rem; font-weight:bold; line-height:1.4;">
+                        ${namesStr}
+                    </div>
+                    
+                    <div style="color:#aaa; font-size:0.9rem; margin-top:5px; font-family:monospace;">
+                        SCORE: <span style="color:#fff">${currentScore}</span>
+                    </div>
+                </div>`;
             }
-
-            htmlOutput += `
-            <div style="background: ${bg}; margin-bottom: 12px; padding: 15px; border-radius: 10px; border: 1px solid ${color};">
-                <div style="color: ${color}; font-size: ${size}; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">
-                    ${medal} Rank ${rank}
-                </div>
-                <div style="color: white; font-size: 1.3rem; font-weight: bold; margin: 5px 0; line-height: 1.2;">
-                    ${namesStr}
-                </div>
-                <div style="color: #ccc; font-family: monospace; font-size: 1rem;">
-                    Total Score: <span style="color:white; font-weight:bold">${group.score}</span>
-                </div>
-            </div>`;
         }
 
-        if (htmlOutput === "") htmlOutput = "<div style='color:white'>No scores recorded.</div>";
+        console.log("Final HTML:", htmlOutput); // DEBUG
 
-        // 4. Update Database
+        // 5. Update Database
         window.db.ref('gameState').update({ 
             status: 'ENDED', 
             winnerName: htmlOutput 
