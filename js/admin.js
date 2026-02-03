@@ -4,12 +4,31 @@ let teamCache = {};
 function adminAuth() {
     if (document.getElementById('adminPass').value === "admin123") {
         document.getElementById('adminLogin').style.display = 'none';
+        repairScores(); // <--- AUTO REPAIR DATA ON LOGIN
     } else { alert("Wrong Password"); }
 }
 
 function switchTab(id) {
     ['control', 'logs', 'teams', 'scoreboard'].forEach(t => document.getElementById(`tab-${t}`).classList.add('hidden'));
     document.getElementById(`tab-${id}`).classList.remove('hidden');
+}
+
+// --- DATA REPAIR (THE FIX FOR "12 > 25") ---
+function repairScores() {
+    console.log("Running Data Repair...");
+    window.db.ref('teams').once('value', snap => {
+        snap.forEach(child => {
+            let val = child.val();
+            let safeScore = Number(val.score);
+            if (isNaN(safeScore)) safeScore = 0;
+            
+            // Force update to Number in DB
+            if (val.score !== safeScore) {
+                console.log(`Fixing Team ${val.name}: ${val.score} -> ${safeScore}`);
+                window.db.ref(`teams/${child.key}`).update({ score: safeScore });
+            }
+        });
+    });
 }
 
 // --- GAME CONTROLS ---
@@ -29,110 +48,67 @@ function resetQuestion() {
     document.getElementById('logTable').innerHTML = ''; 
 }
 
-// --- FINAL WINNER LOGIC (SANITIZED) ---
+// --- SIMPLIFIED WINNER LOGIC ---
 function endGame() {
-    if(!confirm("End entire event? This will display the winners.")) return;
+    if(!confirm("End entire event?")) return;
     
-    console.clear();
-    console.log("--- STARTING SCORE CALCULATION ---");
-
     window.db.ref('teams').once('value', snap => {
-        const rawTeams = [];
-        snap.forEach(c => rawTeams.push({ id: c.key, ...c.val() }));
-
-        // 1. SANITIZE DATA (The Fix)
-        // We force every score to be a real Number. If it's garbage, it becomes 0.
-        const cleanTeams = rawTeams.map(t => {
-            let rawScore = t.score;
-            let finalScore = 0;
-
-            // Try parsing
-            if (typeof rawScore === 'number') {
-                finalScore = rawScore;
-            } else if (typeof rawScore === 'string') {
-                finalScore = parseFloat(rawScore);
-            }
-            
-            // If invalid (NaN), set to 0
-            if (isNaN(finalScore)) finalScore = 0;
-
-            console.log(`Team: ${t.name} | Raw: ${rawScore} | Parsed: ${finalScore}`);
-            
-            return {
-                name: t.name,
-                id: t.id,
-                score: finalScore
-            };
-        });
-
-        // 2. GROUP BY SCORE
-        // Map: Score (Number) -> Array of Names
-        let scoreMap = {};
-        cleanTeams.forEach(t => {
-            if (!scoreMap[t.score]) scoreMap[t.score] = [];
-            scoreMap[t.score].push(t.name);
-        });
-
-        // 3. GET UNIQUE SCORES & SORT DESCENDING
-        // This is the step that was failing before. We manually sort the keys.
-        let uniqueScores = Object.keys(scoreMap).map(Number); // Convert keys back to numbers
-        uniqueScores.sort((a, b) => b - a); // 25, 12, 10...
-
-        console.log("Final Ranked Scores:", uniqueScores);
-
-        // 4. GENERATE HTML
-        let htmlOutput = "";
+        let allTeams = [];
         
-        if (uniqueScores.length === 0) {
-            htmlOutput = "<div style='color:white'>No scores recorded.</div>";
-        } else {
-            // Loop Top 3
-            for (let i = 0; i < Math.min(uniqueScores.length, 3); i++) {
-                let currentScore = uniqueScores[i];
-                let namesArray = scoreMap[currentScore]; // Get names for this score
-                let rank = i + 1;
-                
-                let namesStr = namesArray.join(" <br> "); 
+        // 1. Get Data
+        snap.forEach(c => {
+            let t = c.val();
+            allTeams.push({
+                name: t.name,
+                score: Number(t.score) || 0 // Absolute Force Number
+            });
+        });
 
-                // Styling
-                let color = "#fff";
-                let medal = "";
-                let bg = "rgba(255,255,255,0.05)";
-                let size = "1rem";
+        // 2. Sort Descending (Big numbers top)
+        allTeams.sort((a, b) => b.score - a.score);
+        
+        // DEBUG: Show Admin exactly what is happening
+        console.table(allTeams); 
+        alert(`Top Score Found: ${allTeams[0].score} by ${allTeams[0].name}`);
 
-                if (rank === 1) { color = "#FFD700"; medal = "🏆"; bg = "rgba(255, 215, 0, 0.2)"; size="1.8rem"; }
-                if (rank === 2) { color = "#C0C0C0"; medal = "🥈"; bg = "rgba(192, 192, 192, 0.2)"; size="1.5rem"; }
-                if (rank === 3) { color = "#CD7F32"; medal = "🥉"; bg = "rgba(205, 127, 50, 0.2)"; size="1.3rem"; }
-
-                htmlOutput += `
-                <div style="
-                    background: ${bg}; 
-                    border: 2px solid ${color}; 
-                    border-radius: 15px; 
-                    margin-bottom: 15px; 
-                    padding: 20px; 
-                    text-align: center;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.6);">
-                    
-                    <div style="color:${color}; font-size:${size}; font-weight:900; letter-spacing:2px; margin-bottom:10px;">
-                        ${medal} RANK ${rank}
-                    </div>
-                    
-                    <div style="color:white; font-size:1.5rem; font-weight:bold; line-height:1.4;">
-                        ${namesStr}
-                    </div>
-                    
-                    <div style="color:#ddd; font-size:1.1rem; margin-top:10px; font-family:monospace; background:rgba(0,0,0,0.3); display:inline-block; padding:2px 10px; rounded:4px;">
-                        SCORE: ${currentScore}
-                    </div>
-                </div>`;
+        // 3. Group by Score (Bucket Method)
+        let buckets = []; // [{score: 25, names: []}, {score: 12, names: []}]
+        
+        allTeams.forEach(t => {
+            // If this is the first team OR score is different from previous bucket
+            if (buckets.length === 0 || buckets[buckets.length-1].score !== t.score) {
+                buckets.push({ score: t.score, names: [t.name] });
+            } else {
+                // Same score as previous bucket, add name
+                buckets[buckets.length-1].names.push(t.name);
             }
+        });
+
+        // 4. Generate HTML
+        let html = "";
+        if (buckets.length === 0) html = "No Data";
+        
+        // Only take Top 3 Buckets
+        for(let i=0; i < Math.min(3, buckets.length); i++) {
+            let bucket = buckets[i];
+            let rank = i + 1;
+            let names = bucket.names.join("<br>");
+            
+            let color = rank === 1 ? "#FFD700" : (rank === 2 ? "#C0C0C0" : "#CD7F32");
+            let icon = rank === 1 ? "🏆" : (rank === 2 ? "🥈" : "🥉");
+            
+            html += `
+            <div style="border: 2px solid ${color}; background: rgba(0,0,0,0.3); border-radius: 10px; margin-bottom: 10px; padding: 10px;">
+                <div style="color:${color}; font-size: 1.5rem; font-weight: bold;">${icon} Rank ${rank}</div>
+                <div style="font-size: 1.2rem; margin: 5px 0;">${names}</div>
+                <div style="color: #aaa;">Score: ${bucket.score}</div>
+            </div>`;
         }
 
-        // 5. SAVE TO DB
+        // 5. Save
         window.db.ref('gameState').update({ 
             status: 'ENDED', 
-            winnerName: htmlOutput 
+            winnerName: html 
         });
     });
 }
@@ -169,10 +145,10 @@ window.db.ref('teams').on('value', snap => {
         teamCache[c.key] = val.name; 
     });
     
-    // Display sorting (Visual only)
-    teams.sort((a,b) => (parseFloat(b.score)||0) - (parseFloat(a.score)||0));
+    // Sort
+    teams.sort((a,b) => (Number(b.score)||0) - (Number(a.score)||0));
 
-    // Scoreboard
+    // Render Table
     document.getElementById('scoreTable').innerHTML = teams.map((t, i) => `
         <tr class="border-b border-gray-700">
             <td class="p-4 text-yellow-400 font-bold text-2xl">#${i+1}</td>
@@ -181,7 +157,7 @@ window.db.ref('teams').on('value', snap => {
         </tr>
     `).join('');
     
-    // Admin Grid (Kick Button)
+    // Render Grid
     document.getElementById('teamGrid').innerHTML = teams.map(t => {
         const isOnline = (Date.now() - t.lastActive) < 15000;
         return `
@@ -200,7 +176,6 @@ window.db.ref('teams').on('value', snap => {
 window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap => {
     const list = document.getElementById('buzzList');
     const logTable = document.getElementById('logTable');
-    
     list.innerHTML = '';
     logTable.innerHTML = ''; 
     
@@ -210,7 +185,7 @@ window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap
         const data = child.val();
         const teamName = teamCache[teamId] || "Loading..."; 
         
-        // Control Panel List
+        // List
         const div = document.createElement('div');
         div.className = "flex flex-col bg-gray-700 p-3 rounded mb-2 border border-gray-600";
         div.innerHTML = `
@@ -229,27 +204,21 @@ window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap
         // Logs
         const date = new Date(data.time);
         const timeStr = date.toLocaleTimeString('en-US', { hour12: false }) + "." + date.getMilliseconds();
-        
-        const row = `
+        logTable.innerHTML += `
             <tr class="border-b border-gray-700 hover:bg-gray-700">
                 <td class="p-3 font-mono text-yellow-400">#${rank}</td>
-                <td class="p-3">${teamName} <span class="text-xs text-gray-500">(${teamId})</span></td>
+                <td class="p-3">${teamName}</td>
                 <td class="p-3 font-mono text-gray-300">${timeStr}</td>
             </tr>`;
-        logTable.innerHTML += row;
-
         rank++;
     });
 });
 
 // --- ACTIONS ---
-
 function givePoints(teamId, pts) { 
     window.db.ref(`teams/${teamId}/score`).transaction(c => (Number(c)||0) + pts); 
 }
 
 function kick(id) { 
-    if(confirm(`Kick Team ${id}?`)) {
-        window.db.ref(`teams/${id}/sessionId`).set(null); 
-    }
+    if(confirm(`Kick Team ${id}?`)) window.db.ref(`teams/${id}/sessionId`).set(null); 
 }
