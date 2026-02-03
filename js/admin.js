@@ -29,55 +29,64 @@ function resetQuestion() {
     document.getElementById('logTable').innerHTML = ''; 
 }
 
-// --- NEW WINNER LOGIC (Fixed for Ties) ---
+// --- FIXED WINNER LOGIC (Robust Grouping) ---
 function endGame() {
-    if(!confirm("End entire event? This will calculate ranks and display winners.")) return;
+    if(!confirm("End entire event? This will display the winners.")) return;
     
     window.db.ref('teams').once('value', snap => {
         const teams = [];
         snap.forEach(c => teams.push({ id: c.key, ...c.val() }));
         
-        // 1. Sort by Score Descending (Highest first)
-        teams.sort((a,b) => (b.score || 0) - (a.score || 0));
+        // 1. Sort by Score Descending (Ensure Numbers)
+        teams.sort((a,b) => (Number(b.score) || 0) - (Number(a.score) || 0));
 
-        // 2. Group Teams by Score
-        // Example: { 50: ['Team A'], 40: ['Team B', 'Team C'] }
-        let scoreMap = new Map();
+        // 2. Group by Score (Dense Ranking)
+        // Result will be: [ {score: 25, names: ['A', 'B']}, {score: 20, names: ['C']} ... ]
+        let leaderboard = [];
+        
         teams.forEach(t => {
-            let s = t.score || 0;
-            if(!scoreMap.has(s)) scoreMap.set(s, []);
-            scoreMap.get(s).push(t.name);
+            let s = Number(t.score) || 0;
+            // Check if this score is already the last one added (grouping)
+            if (leaderboard.length > 0 && leaderboard[leaderboard.length - 1].score === s) {
+                leaderboard[leaderboard.length - 1].names.push(t.name);
+            } else {
+                // New distinct score
+                leaderboard.push({ score: s, names: [t.name] });
+            }
         });
 
-        // 3. Generate HTML for Top 3 Distinct Scores
+        // 3. Generate HTML for Top 3 Ranks
         let htmlOutput = "";
-        let uniqueScores = Array.from(scoreMap.keys()); // Gets scores in Descending order due to sort above
-        
-        // Loop through the top 3 scores
-        for(let i = 0; i < Math.min(uniqueScores.length, 3); i++) {
-            let score = uniqueScores[i];
-            let names = scoreMap.get(score).join(" & "); // Handle ties with "&"
+        let limit = Math.min(leaderboard.length, 3);
+
+        for (let i = 0; i < limit; i++) {
+            let group = leaderboard[i];
             let rank = i + 1;
+            let namesStr = group.names.join(" & "); // Join ties with "&"
 
-            let color = "#ffffff";
-            let icon = "";
-            let size = "1.2em";
+            let color = "#fff";
+            let medal = "";
+            let size = "1rem";
+            let bg = "transparent";
 
-            if (rank === 1) { color = "#FFD700"; icon = "🥇"; size = "2em"; } // Gold
-            else if (rank === 2) { color = "#C0C0C0"; icon = "🥈"; size = "1.5em"; } // Silver
-            else if (rank === 3) { color = "#CD7F32"; icon = "🥉"; size = "1.2em"; } // Bronze
+            if (rank === 1) { 
+                color = "#FFD700"; medal = "🏆"; size = "1.5rem"; bg = "rgba(255, 215, 0, 0.1)";
+            } else if (rank === 2) { 
+                color = "#C0C0C0"; medal = "🥈"; size = "1.2rem"; bg = "rgba(192, 192, 192, 0.1)";
+            } else if (rank === 3) { 
+                color = "#CD7F32"; medal = "🥉"; size = "1.1rem"; bg = "rgba(205, 127, 50, 0.1)";
+            }
 
-            // Create a nice block for each rank
             htmlOutput += `
-            <div style="margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px;">
-                <div style="color: ${color}; font-size: ${size}; font-weight: bold; text-shadow: 0px 0px 10px rgba(0,0,0,0.8);">
-                    ${icon} Rank ${rank}
+            <div style="background: ${bg}; margin-bottom: 12px; padding: 15px; border-radius: 10px; border: 1px solid ${color};">
+                <div style="color: ${color}; font-size: ${size}; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">
+                    ${medal} Rank ${rank}
                 </div>
-                <div style="color: white; font-size: 1.2em; margin-top: 5px;">
-                    ${names}
+                <div style="color: white; font-size: 1.3rem; font-weight: bold; margin: 5px 0; line-height: 1.2;">
+                    ${namesStr}
                 </div>
-                <div style="color: #aaa; font-size: 0.8em;">
-                    (${score} Pts)
+                <div style="color: #ccc; font-family: monospace; font-size: 1rem;">
+                    Total Score: <span style="color:white; font-weight:bold">${group.score}</span>
                 </div>
             </div>`;
         }
@@ -173,10 +182,10 @@ window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap
                 <span class="text-xs text-gray-400 font-mono">${teamId}</span>
             </div>
             <div class="grid grid-cols-4 gap-2">
-                <button onclick="givePoints('${teamId}', 15)" class="bg-purple-600 hover:bg-purple-500 py-1 rounded font-bold text-sm shadow">+15</button>
-                <button onclick="givePoints('${teamId}', 10)" class="bg-green-600 hover:bg-green-500 py-1 rounded font-bold text-sm shadow">+10</button>
-                <button onclick="givePoints('${teamId}', 7)" class="bg-blue-600 hover:bg-blue-500 py-1 rounded font-bold text-sm shadow">+7</button>
-                <button onclick="givePoints('${teamId}', -4)" class="bg-red-600 hover:bg-red-500 py-1 rounded font-bold text-sm shadow">-4</button>
+                <button onclick="givePoints('${teamId}', 3)" class="bg-purple-600 hover:bg-purple-500 py-1 rounded font-bold text-sm shadow">x3</button>
+                <button onclick="givePoints('${teamId}', 2)" class="bg-green-600 hover:bg-green-500 py-1 rounded font-bold text-sm shadow">x2</button>
+                <button onclick="givePoints('${teamId}', 1)" class="bg-blue-600 hover:bg-blue-500 py-1 rounded font-bold text-sm shadow">x1</button>
+                <button onclick="givePoints('${teamId}', -1)" class="bg-red-600 hover:bg-red-500 py-1 rounded font-bold text-sm shadow">-1</button>
             </div>`;
         list.appendChild(div);
 
