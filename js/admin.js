@@ -29,42 +29,62 @@ function resetQuestion() {
     document.getElementById('logTable').innerHTML = ''; 
 }
 
-// --- NEW WINNER LOGIC (Handles Ties) ---
+// --- NEW WINNER LOGIC (Fixed for Ties) ---
 function endGame() {
-    if(!confirm("End entire event? This will display the winners.")) return;
+    if(!confirm("End entire event? This will calculate ranks and display winners.")) return;
     
     window.db.ref('teams').once('value', snap => {
         const teams = [];
         snap.forEach(c => teams.push({ id: c.key, ...c.val() }));
         
-        // Sort by Score Descending
+        // 1. Sort by Score Descending (Highest first)
         teams.sort((a,b) => (b.score || 0) - (a.score || 0));
 
+        // 2. Group Teams by Score
+        // Example: { 50: ['Team A'], 40: ['Team B', 'Team C'] }
+        let scoreMap = new Map();
+        teams.forEach(t => {
+            let s = t.score || 0;
+            if(!scoreMap.has(s)) scoreMap.set(s, []);
+            scoreMap.get(s).push(t.name);
+        });
+
+        // 3. Generate HTML for Top 3 Distinct Scores
         let htmlOutput = "";
-        let rank = 1;
+        let uniqueScores = Array.from(scoreMap.keys()); // Gets scores in Descending order due to sort above
+        
+        // Loop through the top 3 scores
+        for(let i = 0; i < Math.min(uniqueScores.length, 3); i++) {
+            let score = uniqueScores[i];
+            let names = scoreMap.get(score).join(" & "); // Handle ties with "&"
+            let rank = i + 1;
 
-        // Loop to find Top 3 Ranks
-        for (let i = 0; i < teams.length; i++) {
-            if (rank > 3) break; // Stop after Rank 3
+            let color = "#ffffff";
+            let icon = "";
+            let size = "1.2em";
 
-            // Find all teams with this specific score (Handle Ties)
-            let currentScore = teams[i].score || 0;
-            let tiedTeams = teams.filter(t => (t.score || 0) === currentScore);
-            let names = tiedTeams.map(t => t.name).join(" & ");
+            if (rank === 1) { color = "#FFD700"; icon = "🥇"; size = "2em"; } // Gold
+            else if (rank === 2) { color = "#C0C0C0"; icon = "🥈"; size = "1.5em"; } // Silver
+            else if (rank === 3) { color = "#CD7F32"; icon = "🥉"; size = "1.2em"; } // Bronze
 
-            // Formatting
-            if (rank === 1) htmlOutput += `<div style="font-size: 1.5em; color: gold;">🥇 1st: ${names} (${currentScore})</div>`;
-            else if (rank === 2) htmlOutput += `<div style="font-size: 1.2em; color: silver;">🥈 2nd: ${names} (${currentScore})</div>`;
-            else if (rank === 3) htmlOutput += `<div style="font-size: 1.0em; color: #cd7f32;">🥉 3rd: ${names} (${currentScore})</div>`;
-
-            // Skip the index forward by the number of tied teams - 1
-            i += (tiedTeams.length - 1);
-            rank++;
+            // Create a nice block for each rank
+            htmlOutput += `
+            <div style="margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px;">
+                <div style="color: ${color}; font-size: ${size}; font-weight: bold; text-shadow: 0px 0px 10px rgba(0,0,0,0.8);">
+                    ${icon} Rank ${rank}
+                </div>
+                <div style="color: white; font-size: 1.2em; margin-top: 5px;">
+                    ${names}
+                </div>
+                <div style="color: #aaa; font-size: 0.8em;">
+                    (${score} Pts)
+                </div>
+            </div>`;
         }
 
-        if (htmlOutput === "") htmlOutput = "No scores recorded.";
+        if (htmlOutput === "") htmlOutput = "<div style='color:white'>No scores recorded.</div>";
 
-        // Update Database to show on all screens
+        // 4. Update Database
         window.db.ref('gameState').update({ 
             status: 'ENDED', 
             winnerName: htmlOutput 
@@ -130,13 +150,13 @@ window.db.ref('teams').on('value', snap => {
     }).join('');
 });
 
-// 3. Buzz Queue & Logs (FIXED)
+// 3. Buzz Queue & Logs
 window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap => {
     const list = document.getElementById('buzzList');
     const logTable = document.getElementById('logTable');
     
     list.innerHTML = '';
-    logTable.innerHTML = ''; // Clear logs to rebuild properly
+    logTable.innerHTML = ''; 
     
     let rank = 1;
     snap.forEach(child => {
@@ -153,14 +173,14 @@ window.db.ref('currentQuestion/buzzQueue').orderByChild('time').on('value', snap
                 <span class="text-xs text-gray-400 font-mono">${teamId}</span>
             </div>
             <div class="grid grid-cols-4 gap-2">
-                <button onclick="givePoints('${teamId}', 3)" class="bg-purple-600 hover:bg-purple-500 py-1 rounded font-bold text-sm shadow">x3</button>
-                <button onclick="givePoints('${teamId}', 2)" class="bg-green-600 hover:bg-green-500 py-1 rounded font-bold text-sm shadow">x2</button>
-                <button onclick="givePoints('${teamId}', 1)" class="bg-blue-600 hover:bg-blue-500 py-1 rounded font-bold text-sm shadow">x1</button>
-                <button onclick="givePoints('${teamId}', -1)" class="bg-red-600 hover:bg-red-500 py-1 rounded font-bold text-sm shadow">-1</button>
+                <button onclick="givePoints('${teamId}', 15)" class="bg-purple-600 hover:bg-purple-500 py-1 rounded font-bold text-sm shadow">+15</button>
+                <button onclick="givePoints('${teamId}', 10)" class="bg-green-600 hover:bg-green-500 py-1 rounded font-bold text-sm shadow">+10</button>
+                <button onclick="givePoints('${teamId}', 7)" class="bg-blue-600 hover:bg-blue-500 py-1 rounded font-bold text-sm shadow">+7</button>
+                <button onclick="givePoints('${teamId}', -4)" class="bg-red-600 hover:bg-red-500 py-1 rounded font-bold text-sm shadow">-4</button>
             </div>`;
         list.appendChild(div);
 
-        // B. Populate Logs Tab (Timestamp Proof)
+        // B. Populate Logs Tab
         const date = new Date(data.time);
         const timeStr = date.toLocaleTimeString('en-US', { hour12: false }) + "." + date.getMilliseconds();
         
@@ -184,9 +204,6 @@ function givePoints(teamId, pts) {
 
 function kick(id) { 
     if(confirm(`Kick Team ${id}? They will be forced to logout.`)) {
-        // This sets the sessionId to null in DB. 
-        // The Player script detects this change and logs them out.
         window.db.ref(`teams/${id}/sessionId`).set(null); 
     }
 }
-
