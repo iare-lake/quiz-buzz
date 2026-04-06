@@ -3,46 +3,219 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>ECO BUZZ – Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { background: #0f172a; }
+
+        .leaf-bg {
+            position: fixed; inset: 0; overflow: hidden; z-index: 0; pointer-events: none;
+        }
+        .leaf {
+            position: absolute; opacity: 0.07; font-size: 2rem;
+            animation: floatLeaf linear infinite;
+        }
+        @keyframes floatLeaf {
+            0%   { transform: translateY(110vh) rotate(0deg);   opacity: 0;    }
+            10%  { opacity: 0.07; }
+            90%  { opacity: 0.07; }
+            100% { transform: translateY(-10vh) rotate(360deg); opacity: 0;    }
+        }
+
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 1.25rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .input-field {
+            width: 100%;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 0.6rem;
+            color: #f1f5f9;
+            padding: 0.8rem 1rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus { border-color: #22c55e; }
+        .input-field::placeholder { color: #475569; }
+
+        .btn-login {
+            width: 100%;
+            background: #16a34a;
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 0.85rem;
+            border-radius: 0.6rem;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            letter-spacing: 0.05em;
+        }
+        .btn-login:hover  { background: #15803d; }
+        .btn-login:active { transform: scale(0.98); }
+        .btn-login:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+
+
+
+        .label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.35rem; letter-spacing: 0.05em; text-transform: uppercase; }
+
+        .spinner {
+            display: inline-block; width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle; margin-right: 6px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .pulse-dot {
+            display: inline-block; width: 8px; height: 8px;
+            background: #22c55e; border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+            margin-right: 6px;
+        }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+    </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center">
-    <div class="bg-gray-800 p-8 rounded-lg w-full max-w-sm border border-gray-700">
-        <h2 class="text-2xl font-bold mb-6 text-center text-blue-400">Team Login</h2>
-        <input type="text" id="loginId" placeholder="Team Head Mobile no." class="w-full p-3 mb-4 rounded bg-gray-700 border border-gray-600 outline-none text-white uppercase">
-        <input type="password" id="loginPass" placeholder="Password" class="w-full p-3 mb-6 rounded bg-gray-700 border border-gray-600 outline-none text-white">
-        <button onclick="handleLogin()" class="w-full bg-green-600 hover:bg-green-500 py-3 rounded font-bold text-lg">Login</button>
-        <p class="text-center mt-4 text-sm text-gray-400"><a href="signup.html" class="underline">Register New Team</a></p>
+<body class="min-h-screen flex items-center justify-center px-4 relative">
+
+    <!-- Floating leaves background -->
+    <div class="leaf-bg" id="leafBg"></div>
+
+    <div class="card w-full max-w-sm p-8 relative z-10">
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="text-5xl mb-3">🌿</div>
+            <h1 class="text-3xl font-extrabold tracking-widest text-green-400">ECO BUZZ</h1>
+            <p class="text-slate-400 text-sm mt-1 tracking-wide">TEAM LOGIN</p>
+            <div class="h-0.5 w-16 bg-green-600 mx-auto mt-3 rounded"></div>
+        </div>
+
+        <!-- Form -->
+        <div class="space-y-5">
+
+            <div>
+                <p class="label">Team Name</p>
+                <input id="teamName" type="text" class="input-field" placeholder="e.g. Alpha Wolves"
+                    autocomplete="off" autocorrect="off" spellcheck="false">
+            </div>
+
+            <div>
+                <p class="label">Team Leader Full Name</p>
+                <input id="leaderName" type="text" class="input-field" placeholder="e.g. Rahul Singh"
+                    autocomplete="off" autocorrect="off" spellcheck="false">
+            </div>
+
+            <button id="loginBtn" onclick="handleLogin()" class="btn-login mt-2">
+                LOGIN
+            </button>
+
+
+
+        </div>
+
+        <!-- Footer -->
+        <p class="text-center text-slate-600 text-xs mt-8">
+            <span class="pulse-dot"></span>Powered by ECO BUZZ
+        </p>
     </div>
 
+    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="js/firebase-config.js"></script>
+
     <script>
+        // --- FLOATING LEAVES ---
+        const LEAVES = ['🌿','🍃','🌱','🍀'];
+        const bg = document.getElementById('leafBg');
+        for (let i = 0; i < 18; i++) {
+            const l = document.createElement('span');
+            l.className = 'leaf';
+            l.textContent = LEAVES[i % LEAVES.length];
+            l.style.left = (Math.random() * 100) + 'vw';
+            l.style.animationDuration = (12 + Math.random() * 16) + 's';
+            l.style.animationDelay = (Math.random() * 20) + 's';
+            l.style.fontSize = (1.2 + Math.random() * 1.5) + 'rem';
+            bg.appendChild(l);
+        }
+
+// --- BUILD TEAM ID ---
+        // Format: TEAMNAME_LI  (team name uppercased, underscored + leader initials)
+        // e.g. "Alpha Wolves" + "Rahul Singh" => "ALPHA_WOLVES_RS"
+        function buildTeamId(teamName, leaderName) {
+            const tPart = teamName.trim().toUpperCase().replace(/\s+/g, '_');
+            const words = leaderName.trim().split(/\s+/);
+            const initials = words.map(w => w[0].toUpperCase()).join('');
+            return tPart + '_' + initials;
+        }
+
+        // --- LOGIN HANDLER ---
         function handleLogin() {
-            const id = document.getElementById('loginId').value.trim().toUpperCase();
-            const pass = document.getElementById('loginPass').value.trim();
+            const teamName   = document.getElementById('teamName').value.trim();
+            const leaderName = document.getElementById('leaderName').value.trim();
 
-            if(!id || !pass) return Swal.fire('Error', 'Fill all fields', 'error');
+            if (!teamName || !leaderName) {
+                Swal.fire({ icon: 'warning', title: 'Missing Fields', text: 'Please fill in both fields.', background: '#1e293b', color: '#f1f5f9', confirmButtonColor: '#16a34a' });
+                return;
+            }
 
-            window.db.ref('teams/' + id).once('value', snapshot => {
-                if (!snapshot.exists()) return Swal.fire('Error', 'Team ID not found', 'error');
-                
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Verifying...';
+
+            const teamId = buildTeamId(teamName, leaderName);
+
+            window.db.ref('teams/' + teamId).once('value', snapshot => {
+                if (!snapshot.exists()) {
+                    showError('Team Not Found', 'No team registered with that name and leader. Please check your details or register first.');
+                    resetBtn();
+                    return;
+                }
+
                 const data = snapshot.val();
-                if (data.password !== pass) return Swal.fire('Error', 'Wrong Password', 'error');
 
-                // KICK OLD SESSION: Generate new token
-                const newSessionId = Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-                
-                window.db.ref('teams/' + id).update({ sessionId: newSessionId }).then(() => {
-                    localStorage.setItem('quiz_teamId', id);
+                // Verify leader name matches (case-insensitive)
+                const storedLeader = (data.leaderName || '').trim().toLowerCase();
+                const enteredLeader = leaderName.toLowerCase();
+
+                if (storedLeader !== enteredLeader) {
+                    showError('Name Mismatch', 'Team leader name does not match our records.');
+                    resetBtn();
+                    return;
+                }
+
+                // Create new session (kicks old device)
+                const newSessionId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+                window.db.ref('teams/' + teamId).update({ sessionId: newSessionId }).then(() => {
+                    localStorage.setItem('quiz_teamId', teamId);
                     localStorage.setItem('quiz_sessionId', newSessionId);
-                    window.location.href = "index.html";
+                    window.location.href = 'index.html';
                 });
             });
         }
+
+        function showError(title, text) {
+            Swal.fire({ icon: 'error', title, text, background: '#1e293b', color: '#f1f5f9', confirmButtonColor: '#16a34a' });
+        }
+
+        function resetBtn() {
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = false;
+            btn.innerHTML = 'LOGIN';
+        }
+
+        // Allow Enter key to submit
+        document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
     </script>
 </body>
-
 </html>
