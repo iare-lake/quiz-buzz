@@ -3,76 +3,655 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Quiz Buzzer</title>
+    <title>ECO BUZZ – Buzzer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- SECURITY CHECK -->
     <script src="js/auth-check.js"></script>
     <style>
-        .buzzer-btn { transition: all 0.1s ease; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-        .buzzer-btn:active { transform: scale(0.95); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background: #0a0f1e;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            color: white;
+        }
+
+        /* ── HEADER ── */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: #111827;
+            border-bottom: 1px solid #1f2937;
+            z-index: 20;
+            flex-shrink: 0;
+        }
+        .header-title { font-size: 1.1rem; font-weight: 800; letter-spacing: 0.15em; color: #4ade80; }
+        .score-badge {
+            background: #064e3b;
+            border: 1px solid #059669;
+            border-radius: 999px;
+            padding: 0.3rem 0.85rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #6ee7b7;
+            display: flex; align-items: center; gap: 6px;
+            transition: transform 0.2s;
+        }
+        .score-badge.bump { animation: scoreBump 0.4s ease; }
+        @keyframes scoreBump { 0%,100%{transform:scale(1)} 50%{transform:scale(1.25)} }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            position: fixed; inset-y: 0; left: 0;
+            width: min(280px, 85vw);
+            background: #111827;
+            border-right: 1px solid #1f2937;
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+            z-index: 50;
+            display: flex; flex-direction: column;
+            padding: 1.5rem 1.25rem;
+            overflow-y: auto;
+        }
+        .sidebar.open { transform: translateX(0); }
+        .sidebar-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            z-index: 40; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .sidebar-overlay.open { opacity: 1; pointer-events: all; }
+
+        .sidebar-section {
+            background: #1f2937;
+            border-radius: 0.75rem;
+            padding: 0.85rem 1rem;
+            margin-bottom: 0.85rem;
+        }
+        .sidebar-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #6b7280; margin-bottom: 0.4rem; }
+        .sidebar-value { font-size: 1rem; font-weight: 600; color: #f3f4f6; }
+        .rounds-badge {
+            display: inline-block;
+            background: #064e3b; color: #6ee7b7;
+            border-radius: 999px; padding: 2px 10px;
+            font-size: 0.8rem; font-weight: 700;
+            margin: 2px;
+        }
+        .hist-row {
+            display: flex; justify-content: space-between;
+            font-size: 0.82rem; padding: 3px 0;
+            border-bottom: 1px solid #374151;
+            color: #d1d5db;
+        }
+        .hist-row:last-child { border-bottom: none; }
+        .gain { color: #4ade80; }
+        .lose { color: #f87171; }
+
+        /* ── MAIN AREA ── */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            padding: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ── STATUS TEXT ── */
+        .status-text {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #9ca3af;
+            text-align: center;
+            min-height: 1.5rem;
+            transition: color 0.3s;
+        }
+
+        /* ── TIMER ── */
+        .timer-wrap {
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+        }
+        .timer-display {
+            font-size: clamp(2.5rem, 10vw, 3.5rem);
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.05em;
+            color: #fbbf24;
+            transition: color 0.3s;
+            line-height: 1;
+        }
+        .timer-display.urgent { color: #f87171; animation: timerPulse 0.5s ease infinite alternate; }
+        @keyframes timerPulse { from{opacity:1} to{opacity:0.5} }
+
+        .timer-bar-track {
+            width: min(220px, 60vw);
+            height: 6px;
+            background: #1f2937;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .timer-bar {
+            height: 100%;
+            border-radius: 999px;
+            background: #fbbf24;
+            transition: width 1s linear, background 0.3s;
+            width: 100%;
+        }
+
+        /* ── BUZZER BUTTON ── */
+        .buzzer-wrap {
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .buzzer-ring {
+            position: absolute;
+            width: calc(100% + 24px);
+            height: calc(100% + 24px);
+            border-radius: 50%;
+            border: 3px solid transparent;
+            transition: border-color 0.3s, transform 0.3s;
+            pointer-events: none;
+        }
+        .buzzer-btn {
+            width: clamp(180px, 50vw, 240px);
+            height: clamp(180px, 50vw, 240px);
+            border-radius: 50%;
+            border: none;
+            font-size: clamp(1.1rem, 4vw, 1.4rem);
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.3s, background 0.3s;
+            touch-action: manipulation;
+            position: relative;
+            z-index: 1;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 4px;
+        }
+        .buzzer-btn:active:not(:disabled) { transform: scale(0.94); }
+        .buzzer-btn:disabled { cursor: not-allowed; }
+
+        /* STATE: YELLOW - waiting */
+        .state-yellow {
+            background: #78350f;
+            color: #fde68a;
+            box-shadow: 0 0 40px rgba(251,191,36,0.2);
+        }
+        .state-yellow + .buzzer-ring { border-color: rgba(251,191,36,0.3); }
+
+        /* STATE: GREEN - open */
+        .state-green {
+            background: #064e3b;
+            color: #6ee7b7;
+            box-shadow: 0 0 60px rgba(74,222,128,0.35);
+            animation: greenPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes greenPulse {
+            0%,100% { box-shadow: 0 0 40px rgba(74,222,128,0.3); }
+            50%      { box-shadow: 0 0 80px rgba(74,222,128,0.6); }
+        }
+        .state-green + .buzzer-ring {
+            border-color: rgba(74,222,128,0.5);
+            animation: ringPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes ringPulse {
+            0%,100% { transform: scale(1); opacity:0.5; }
+            50%      { transform: scale(1.06); opacity:1; }
+        }
+
+        /* STATE: RED - buzzed */
+        .state-red {
+            background: #7f1d1d;
+            color: #fca5a5;
+            box-shadow: 0 0 60px rgba(248,113,113,0.4);
+            animation: none;
+        }
+        .state-red + .buzzer-ring { border-color: rgba(248,113,113,0.4); }
+
+        /* STATE: BLACK - locked */
+        .state-black {
+            background: #111827;
+            color: #374151;
+            box-shadow: none;
+            animation: none;
+        }
+        .state-black + .buzzer-ring { border-color: transparent; }
+
+        .buzz-position {
+            font-size: 0.72rem;
+            font-weight: 600;
+            opacity: 0.8;
+            letter-spacing: 0.08em;
+        }
+
+        /* ── RIPPLE ── */
+        .ripple {
+            position: absolute; border-radius: 50%;
+            width: 100%; height: 100%;
+            background: rgba(255,255,255,0.3);
+            transform: scale(0); opacity: 1;
+            animation: rippleAnim 0.6s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes rippleAnim { to { transform: scale(2.5); opacity: 0; } }
+
+        /* ── WINNER OVERLAY ── */
+        .winner-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.96);
+            z-index: 60;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        .winner-overlay.show { display: flex; }
+        .winner-card {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 1.25rem;
+            padding: 2rem 1.5rem;
+            width: 100%; max-width: 420px;
+            text-align: center;
+        }
+        .winner-rank {
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .rank-1 { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); }
+        .rank-2 { background: rgba(156,163,175,0.1); border: 1px solid rgba(156,163,175,0.3); }
+
+        /* ── CONFETTI ── */
+        .confetti-piece {
+            position: fixed;
+            width: 10px; height: 10px;
+            top: -10px;
+            border-radius: 2px;
+            animation: confettiFall linear forwards;
+            z-index: 70;
+            pointer-events: none;
+        }
+        @keyframes confettiFall {
+            0%   { transform: translateY(0) rotate(0deg);   opacity: 1; }
+            100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* ── MENU BTN ── */
+        .menu-btn {
+            width: 38px; height: 38px;
+            border-radius: 0.5rem;
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: #9ca3af;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 1rem;
+            transition: background 0.2s;
+        }
+        .menu-btn:hover { background: #374151; }
     </style>
 </head>
-<body class="bg-gray-900 text-white h-screen flex flex-col overflow-hidden relative">
+<body>
 
-    <div class="flex justify-between items-center p-4 bg-gray-800 shadow-md z-20">
-        <button onclick="toggleSidebar()" class="text-2xl text-blue-400"><i class="fas fa-bars"></i></button>
-        <h1 class="text-xl font-bold tracking-wider">LIVE QUIZ</h1>
-        <div id="liveTimer" class="text-xl font-mono text-yellow-400 font-bold">00:00</div>
+<!-- SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+        <span style="font-weight:800;font-size:1.1rem;color:#4ade80;letter-spacing:0.1em;">MY PROFILE</span>
+        <button onclick="toggleSidebar()" style="background:none;border:none;color:#6b7280;font-size:1.1rem;cursor:pointer;"><i class="fas fa-times"></i></button>
     </div>
 
-    <!-- SIDEBAR -->
-    <div id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-gray-800 shadow-2xl transform -translate-x-full transition-transform duration-300 z-50 p-6 border-r border-gray-700">
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-2xl font-bold text-blue-400">Team Profile</h2>
-            <button onclick="toggleSidebar()" class="text-gray-400"><i class="fas fa-times"></i></button>
+    <div class="sidebar-section">
+        <div class="sidebar-label">Team</div>
+        <div class="sidebar-value" id="sb-teamName">—</div>
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-label">Team Leader</div>
+        <div class="sidebar-value" id="sb-leaderName">—</div>
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-label">Current Score</div>
+        <div class="sidebar-value" style="font-size:1.6rem;color:#4ade80;" id="sb-score">20</div>
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-label">Rounds You Got Chance</div>
+        <div id="sb-rounds" style="margin-top:4px;">
+            <span style="color:#6b7280;font-size:0.85rem;">None yet</span>
         </div>
-        <div id="teamDetails" class="space-y-4 text-gray-300"><p>Loading...</p></div>
-        <button onclick="logout()" class="mt-8 w-full bg-red-600 py-2 rounded text-white font-bold">Logout</button>
     </div>
 
-    <!-- MAIN AREA -->
-    <div class="flex-grow flex flex-col items-center justify-center p-6 relative">
-        <h2 id="statusText" class="text-2xl font-bold mb-8 text-gray-400 animate-pulse text-center">WAITING...</h2>
-        
-        <button id="buzzerBtn" onclick="buzz()" disabled 
-            class="buzzer-btn w-64 h-64 rounded-full border-8 border-gray-700 bg-green-700 shadow-[0_0_50px_rgba(0,255,0,0.3)] flex items-center justify-center text-3xl font-bold tracking-widest text-white disabled:opacity-80">
-            WAIT
+    <div class="sidebar-section">
+        <div class="sidebar-label">Points History</div>
+        <div id="sb-history" style="margin-top:4px;">
+            <span style="color:#6b7280;font-size:0.85rem;">No activity yet</span>
+        </div>
+    </div>
+
+    <button onclick="logout()" style="margin-top:auto;padding-top:1rem;width:100%;background:#7f1d1d;border:1px solid #991b1b;color:#fca5a5;font-weight:700;border-radius:0.6rem;padding:0.75rem;cursor:pointer;letter-spacing:0.05em;">
+        LOGOUT
+    </button>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+    <button class="menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+    <span class="header-title">ECO BUZZ</span>
+    <div class="score-badge" id="scoreDisplay">
+        <i class="fas fa-leaf" style="font-size:0.75rem;"></i>
+        <span id="scoreVal">20</span>
+    </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+    <div class="status-text" id="statusText">WAITING FOR QUESTION...</div>
+
+    <!-- TIMER -->
+    <div class="timer-wrap">
+        <div class="timer-display" id="timerDisplay">1:40</div>
+        <div class="timer-bar-track">
+            <div class="timer-bar" id="timerBar"></div>
+        </div>
+    </div>
+
+    <!-- BUZZER -->
+    <div class="buzzer-wrap">
+        <button class="buzzer-btn state-yellow" id="buzzerBtn" onclick="buzz()" disabled>
+            <span id="buzzerText">WAIT</span>
+            <span class="buzz-position" id="buzzerSub"></span>
         </button>
+        <div class="buzzer-ring"></div>
     </div>
 
-    <!-- WINNER OVERLAY (FIXED SCROLLING & SIZE) -->
-    <div id="winnerOverlay" class="hidden fixed inset-0 bg-black/95 z-[60] overflow-y-auto">
-        <div class="min-h-screen flex items-center justify-center p-4">
-            <div class="w-full max-w-lg bg-gray-900 border border-gray-700 rounded-xl p-6 shadow-2xl relative">
-                
-                <!-- Close Button (Optional) -->
-                <!-- <button onclick="document.getElementById('winnerOverlay').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fas fa-times"></i></button> -->
+</div>
 
-                <!-- Header -->
-                <div class="text-center mb-8 mt-4">
-                    <i class="fas fa-trophy text-5xl text-yellow-400 mb-4 animate-bounce"></i>
-                    <h1 class="text-3xl font-extrabold text-white tracking-widest">FINAL RESULTS</h1>
-                    <div class="h-1 w-24 bg-blue-500 mx-auto mt-4 rounded"></div>
-                </div>
-                
-                <!-- Dynamic Content (Injected from Admin) -->
-                <div id="winnerText" class="text-center space-y-4">
-                    <p class="animate-pulse">Calculating Winner...</p>
-                </div>
-                
-                <div class="mt-8 text-center border-t border-gray-800 pt-6">
-                    <p class="text-gray-500 text-sm">Thank you for participating!</p>
-                    <button onclick="logout()" class="mt-4 bg-gray-800 hover:bg-gray-700 px-6 py-2 rounded text-blue-400 font-bold transition">Logout</button>
-                </div>
-            </div>
-        </div>
+<!-- WINNER OVERLAY -->
+<div class="winner-overlay" id="winnerOverlay">
+    <div style="font-size:2.5rem;margin-bottom:0.5rem;">🌿</div>
+    <div style="font-size:1.4rem;font-weight:900;letter-spacing:0.15em;color:#4ade80;margin-bottom:0.25rem;">ECO BUZZ</div>
+    <div style="font-size:0.75rem;color:#6b7280;letter-spacing:0.1em;margin-bottom:1.5rem;">FINAL RESULTS</div>
+    <div class="winner-card" id="winnerCard">
+        <div id="winnerContent" style="color:#9ca3af;">Calculating...</div>
     </div>
+    <button onclick="logout()" style="margin-top:1.25rem;background:transparent;border:1px solid #374151;color:#6b7280;padding:0.6rem 2rem;border-radius:999px;cursor:pointer;font-size:0.85rem;letter-spacing:0.05em;">
+        LOGOUT
+    </button>
+</div>
 
-    <!-- SCRIPTS -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <script src="js/firebase-config.js"></script>
-    <script src="js/player.js"></script>
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="js/firebase-config.js"></script>
+
+<script>
+    const teamId   = localStorage.getItem('quiz_teamId');
+    const mySession = localStorage.getItem('quiz_sessionId');
+    if (!teamId || !mySession) window.location.replace('login.html');
+
+    // ── STATE ──
+    let timerInterval   = null;
+    let currentScore    = 20;
+    let roundsGotChance = [];   // e.g. [1, 2, 7]
+    let pointsHistory   = [];   // [{round, delta, label}]
+    let currentRound    = 0;
+    let myBuzzPosition  = null;
+    let lastScore       = 20;
+    const TOTAL_TIME    = 100;
+    const MAX_BUZZERS   = 10;
+
+    // ── SESSION ENFORCEMENT ──
+    window.db.ref(`teams/${teamId}`).on('value', snap => {
+        const data = snap.val();
+        if (!data || !data.sessionId || data.sessionId !== mySession) {
+            alert('Session expired or you logged in from another device.');
+            localStorage.clear();
+            window.location.replace('login.html');
+            return;
+        }
+
+        // Update score
+        const newScore = Number(data.score) || 20;
+        if (newScore !== lastScore && lastScore !== null) {
+            const delta = newScore - lastScore;
+            pointsHistory.push({ round: currentRound, delta, label: delta > 0 ? `+${delta} pts` : `${delta} pts` });
+            animateScoreBump();
+        }
+        lastScore = newScore;
+        currentScore = newScore;
+
+        document.getElementById('scoreVal').textContent  = newScore;
+        document.getElementById('sb-score').textContent  = newScore;
+        document.getElementById('sb-teamName').textContent   = data.name || teamId;
+        document.getElementById('sb-leaderName').textContent = data.leaderName || '—';
+        renderSidebarHistory();
+    });
+
+    // ── HEARTBEAT ──
+    setInterval(() => {
+        window.db.ref(`teams/${teamId}`).update({ lastActive: firebase.database.ServerValue.TIMESTAMP });
+    }, 5000);
+
+    // ── GAME STATE ──
+    window.db.ref('gameState').on('value', snap => {
+        const state  = snap.val() || {};
+        const status = state.status || 'WAITING';
+
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+
+        // Winner screen
+        if (status === 'ENDED') {
+            renderWinnerScreen(state.winnerName || '');
+            return;
+        }
+
+        if (status === 'WAITING') {
+            currentRound = (state.round || 0);
+            myBuzzPosition = null;
+            setBtn('yellow', 'WAIT', '', true);
+            setStatus('WAITING FOR QUESTION...', '#9ca3af');
+            setTimer(TOTAL_TIME, TOTAL_TIME);
+        }
+        else if (status === 'OPEN') {
+            currentRound = (state.round || 0);
+            const startTime = state.startTime || Date.now();
+
+            const tick = () => {
+                const elapsed   = Math.floor((Date.now() - startTime) / 1000);
+                const remaining = Math.max(0, TOTAL_TIME - elapsed);
+                setTimer(remaining, TOTAL_TIME);
+                if (remaining <= 0) { clearInterval(timerInterval); timerInterval = null; }
+            };
+            tick();
+            timerInterval = setInterval(tick, 500);
+
+            // Check if already buzzed
+            window.db.ref(`currentQuestion/buzzQueue/${teamId}`).once('value', s => {
+                if (s.exists()) {
+                    window.db.ref('currentQuestion/buzzQueue').orderByChild('time').once('value', all => {
+                        let pos = 0, rank = 1;
+                        all.forEach(c => { if (c.key === teamId) pos = rank; rank++; });
+                        myBuzzPosition = pos;
+                        setBtn('red', 'BUZZED', `#${pos} in queue`, true);
+                        setStatus(`YOU ARE #${pos} — LOCKED IN!`, '#f87171');
+                    });
+                } else {
+                    // Check if queue full
+                    window.db.ref('currentQuestion/buzzQueue').once('value', q => {
+                        const count = q.numChildren();
+                        if (count >= MAX_BUZZERS) {
+                            setBtn('black', 'LOCKED', 'Queue full', true);
+                            setStatus('QUEUE FULL — ROUND CLOSED', '#4b5563');
+                        } else {
+                            setBtn('green', 'BUZZ!', 'TAP NOW!', false);
+                            setStatus('HIT IT FAST!', '#4ade80');
+                        }
+                    });
+                }
+            });
+        }
+        else if (status === 'CLOSED') {
+            setBtn('black', 'LOCKED', '', true);
+            setStatus('ROUND CLOSED', '#4b5563');
+            setTimer(0, TOTAL_TIME);
+        }
+    });
+
+    // ── BUZZ QUEUE LIVE (to lock when 10 reached) ──
+    window.db.ref('currentQuestion/buzzQueue').on('value', snap => {
+        const count = snap.numChildren();
+        const btn = document.getElementById('buzzerBtn');
+        if (count >= MAX_BUZZERS && !btn.classList.contains('state-red') && !btn.classList.contains('state-black') && !btn.classList.contains('state-yellow')) {
+            setBtn('black', 'LOCKED', 'Queue full', true);
+            setStatus('QUEUE FULL — ROUND CLOSED', '#4b5563');
+            if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        }
+    });
+
+    // ── BUZZ ──
+    function buzz() {
+        const btn = document.getElementById('buzzerBtn');
+
+        // Ripple effect
+        const ripple = document.createElement('div');
+        ripple.className = 'ripple';
+        btn.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 700);
+
+        setBtn('yellow', '...', 'SENDING', true);
+
+        window.db.ref('currentQuestion/buzzQueue').transaction(queue => {
+            if (queue === null) queue = {};
+            if (Object.keys(queue).length >= MAX_BUZZERS) return; // abort if full
+            if (queue.hasOwnProperty(teamId)) return; // already buzzed
+            queue[teamId] = { time: firebase.database.ServerValue.TIMESTAMP };
+            return queue;
+        }, (error, committed, snap) => {
+            if (committed && snap) {
+                // Find my position
+                window.db.ref('currentQuestion/buzzQueue').orderByChild('time').once('value', all => {
+                    let pos = 0, rank = 1;
+                    all.forEach(c => { if (c.key === teamId) pos = rank; rank++; });
+                    myBuzzPosition = pos;
+                    roundsGotChance.push(currentRound || 1);
+                    renderSidebarRounds();
+                    setBtn('red', 'BUZZED', `#${pos} in queue`, true);
+                    setStatus(`YOU ARE #${pos} — LOCKED IN! 🎯`, '#f87171');
+                });
+            } else {
+                setStatus('TOO LATE!', '#f87171');
+                setBtn('black', 'MISSED', '', true);
+            }
+        });
+    }
+
+    // ── UI HELPERS ──
+    function setBtn(color, text, sub, disabled) {
+        const btn = document.getElementById('buzzerBtn');
+        btn.disabled = disabled;
+        btn.className = `buzzer-btn state-${color}`;
+        document.getElementById('buzzerText').textContent = text;
+        document.getElementById('buzzerSub').textContent  = sub || '';
+    }
+
+    function setStatus(text, color) {
+        const el = document.getElementById('statusText');
+        el.textContent = text;
+        el.style.color  = color;
+    }
+
+    function setTimer(remaining, total) {
+        const mins = Math.floor(remaining / 60);
+        const secs = (remaining % 60).toString().padStart(2, '0');
+        const disp = document.getElementById('timerDisplay');
+        const bar  = document.getElementById('timerBar');
+        disp.textContent = `${mins}:${secs}`;
+        disp.classList.toggle('urgent', remaining <= 15 && remaining > 0);
+        const pct = total > 0 ? (remaining / total) * 100 : 0;
+        bar.style.width = pct + '%';
+        bar.style.background = remaining <= 15 ? '#f87171' : (remaining <= 40 ? '#fb923c' : '#fbbf24');
+    }
+
+    function animateScoreBump() {
+        const el = document.getElementById('scoreDisplay');
+        el.classList.remove('bump');
+        void el.offsetWidth;
+        el.classList.add('bump');
+    }
+
+    // ── SIDEBAR ──
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('sidebarOverlay').classList.toggle('open');
+    }
+
+    function renderSidebarRounds() {
+        const el = document.getElementById('sb-rounds');
+        if (roundsGotChance.length === 0) {
+            el.innerHTML = '<span style="color:#6b7280;font-size:0.85rem;">None yet</span>';
+        } else {
+            el.innerHTML = roundsGotChance.map(r => `<span class="rounds-badge">Round ${r}</span>`).join('');
+        }
+    }
+
+    function renderSidebarHistory() {
+        const el = document.getElementById('sb-history');
+        if (pointsHistory.length === 0) {
+            el.innerHTML = '<span style="color:#6b7280;font-size:0.85rem;">No activity yet</span>';
+            return;
+        }
+        el.innerHTML = pointsHistory.slice(-8).reverse().map(h =>
+            `<div class="hist-row">
+                <span>Round ${h.round}</span>
+                <span class="${h.delta >= 0 ? 'gain' : 'lose'}">${h.label}</span>
+            </div>`
+        ).join('');
+    }
+
+    // ── WINNER SCREEN ──
+    function renderWinnerScreen(html) {
+        document.getElementById('winnerContent').innerHTML = html || '<p style="color:#6b7280">No results yet.</p>';
+        document.getElementById('winnerOverlay').classList.add('show');
+        launchConfetti();
+    }
+
+    function launchConfetti() {
+        const colors = ['#4ade80','#fbbf24','#f87171','#60a5fa','#a78bfa','#34d399'];
+        for (let i = 0; i < 80; i++) {
+            setTimeout(() => {
+                const c = document.createElement('div');
+                c.className = 'confetti-piece';
+                c.style.left = Math.random() * 100 + 'vw';
+                c.style.background = colors[Math.floor(Math.random() * colors.length)];
+                c.style.width  = (6 + Math.random() * 8) + 'px';
+                c.style.height = (6 + Math.random() * 8) + 'px';
+                c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                c.style.animationDuration = (2 + Math.random() * 2.5) + 's';
+                c.style.animationDelay    = (Math.random() * 1.5) + 's';
+                document.body.appendChild(c);
+                setTimeout(() => c.remove(), 5000);
+            }, i * 30);
+        }
+    }
+
+    // ── AUTH ──
+    function logout() { localStorage.clear(); window.location.replace('login.html'); }
+</script>
 </body>
 </html>
