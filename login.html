@@ -155,85 +155,94 @@
     }
 
     // ── MAIN LOGIN ──
-    async function handleLogin() {
-        const teamName   = document.getElementById('teamName').value.trim();
-        const leaderName = document.getElementById('leaderName').value.trim();
+   async function handleLogin() {
+    const teamName   = document.getElementById('teamName').value.trim();
+    const leaderName = document.getElementById('leaderName').value.trim();
 
-        if (!teamName || !leaderName) {
-            setStatus('Please fill in both fields.', 'err');
+    // 1. Basic Validation
+    if (!teamName || !leaderName) {
+        setStatus('Please fill in both fields.', 'err');
+        return;
+    }
+
+    setBtnLoading(true);
+    setStatus('Verifying registration...', '');
+
+    try {
+        // 2. Fetch from Google Sheets via doGet (Fixes CORS)
+        // Ensure APPS_SCRIPT_URL is defined at the top of your script
+        const url = `${APPS_SCRIPT_URL}?teamName=${encodeURIComponent(teamName)}&teamLeadName=${encodeURIComponent(leaderName)}`;
+        
+        const res = await fetch(url);
+        const json = await res.json();
+
+        // 3. Check if Google Script found the team
+        if (json.status !== 'success') {
+            setStatus('Team not found. Check spelling or register first.', 'err');
+            setBtnLoading(false);
             return;
         }
 
-        setBtnLoading(true);
-        setStatus('Checking registration...', '');
-
-        try {
-            // STEP 1 — verify against Google Sheet
-            const res = await fetch(APPS_SCRIPT_URL, {
-                method:  'POST',
-                body:    JSON.stringify({ teamName, teamLeadName: leaderName }),
-            });
-            const json = await res.json();
-
-            if (json.status !== 'success') {
-                setStatus('Team not found. Check your spelling.', 'err');
-                setBtnLoading(false);
-                return;
+        // 4. Data Extraction
+        const d = json.data; // This is the full row from your Google Sheet
+        const teamId = buildTeamId(teamName, leaderName);
+        const newSessionId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
+        // 5. Extract Team Members dynamically from headers
+        // Looks for columns named "Team member 1 Name", "Team member 2 Name", etc.
+        const members = [];
+        const headers = Object.keys(d);
+        for (let i = 1; i <= 10; i++) {
+            const nameKey = headers.find(h => h.toLowerCase().includes(`team member ${i} name`));
+            if (nameKey && d[nameKey]) {
+                members.push({
+                    name: d[nameKey].toString().trim(),
+                    // You can add roll numbers here if you have a "roll" column too
+                });
             }
-
-            // STEP 2 — build Firebase key & extract data
-            const teamId = buildTeamId(teamName, leaderName);
-            const d      = json.data;          // full row from sheet
-            const headers = Object.keys(d);
-
-            // Parse team members dynamically (columns: Team member N Name / roll no.)
-            const members = [];
-            for (let i = 1; i <= 10; i++) {
-                const nameKey = headers.find(h => h.toLowerCase().includes(`team member ${i} name`));
-                const rollKey = headers.find(h => h.toLowerCase().includes(`team member ${i} roll`));
-                if (nameKey && d[nameKey]) {
-                    members.push({ name: d[nameKey], roll: rollKey ? d[rollKey] : '' });
-                }
-            }
-
-            setStatus('Creating session...', '');
-
-            // STEP 3 — generate session ID
-            const newSessionId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-
-            // STEP 4 — check if team already exists (preserve score)
-            const existingSnap = await window.db.ref(`teams/${teamId}`).once('value');
-            const existingScore = existingSnap.exists() ? existingSnap.val().score : undefined;
-
-            const teamData = {
-                name:        (d['Team name']           || teamName).trim(),
-                leaderName:  (d['Team lead name']      || leaderName).trim(),
-                leaderRoll:   d['Team lead roll no.']  || '',
-                leaderPhone:  d['Team lead phone number'] || '',
-                branch:       d['Branch'] || '',
-                year:         d['Year']   || '',
-                members,
-                score:        existingScore !== undefined ? existingScore : 20,
-                sessionId:    newSessionId,
-                lastActive:   0,
-            };
-
-            // STEP 5 — write to Firebase
-            await window.db.ref(`teams/${teamId}`).update(teamData);
-
-            // STEP 6 — save session locally & redirect
-            localStorage.setItem('quiz_teamId',    teamId);
-            localStorage.setItem('quiz_sessionId', newSessionId);
-
-            setStatus('Login successful! Entering...', 'ok');
-            setTimeout(() => { window.location.href = 'index.html'; }, 700);
-
-        } catch (err) {
-            console.error(err);
-            setStatus('Connection error. Check your internet & try again.', 'err');
-            setBtnLoading(false);
         }
+
+        setStatus('Connecting to database...', '');
+
+        // 6. Check for existing score in Firebase (don't reset to 20 if they already have points)
+        const existingSnap = await window.db.ref(`teams/${teamId}`).once('value');
+        let currentScore = 20; // Default starting score
+        if (existingSnap.exists()) {
+            const val = existingSnap.val();
+            if (val.score !== undefined) currentScore = Number(val.score);
+        }
+
+        // 7. Prepare the payload for Firebase
+        const teamData = {
+            name:        (d['Team name'] || teamName).trim(),
+            leaderName:  (d['Team lead name'] || leaderName).trim(),
+            leaderRoll:   d['Team lead roll no.'] || '',
+            branch:       d['Branch'] || '',
+            semester:     d['Semester'] || d['Year'] || '',
+            members:      members, // Array of members
+            score:        currentScore,
+            sessionId:    newSessionId,
+            lastActive:   firebase.database.ServerValue.TIMESTAMP
+        };
+
+        // 8. Update Firebase and LocalStorage
+        await window.db.ref(`teams/${teamId}`).update(teamData);
+        
+        localStorage.setItem('quiz_teamId',    teamId);
+        localStorage.setItem('quiz_sessionId', newSessionId);
+
+        // 9. Success Redirect
+        setStatus('Login Successful! Entering...', 'ok');
+        setTimeout(() => { 
+            window.location.href = 'index.html'; 
+        }, 800);
+
+    } catch (err) {
+        console.error("Login Error:", err);
+        setStatus('Connection Error. Try Emergency Login.', 'err');
+        setBtnLoading(false);
     }
+}
 
     document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
 </script>
