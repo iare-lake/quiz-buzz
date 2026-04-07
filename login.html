@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECO BUZZ – Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            background: #0a0f1e;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100dvh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 1rem; overflow: hidden; position: relative;
+        }
+        .leaf-bg { position: fixed; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+        .leaf { position: absolute; opacity: 0.06; animation: floatLeaf linear infinite; }
+        @keyframes floatLeaf {
+            0%   { transform: translateY(110vh) rotate(0deg);   opacity: 0; }
+            10%  { opacity: 0.06; }
+            90%  { opacity: 0.06; }
+            100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+        }
+        .card {
+            background: #111827; border: 1px solid #1f2937;
+            border-radius: 1.25rem; padding: 2rem 1.75rem;
+            width: 100%; max-width: 380px; position: relative; z-index: 10;
+        }
+        .input-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin-bottom: 0.35rem; display: block; }
+        .input-wrap { position: relative; margin-bottom: 1rem; }
+        .input-icon { position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: #374151; font-size: 0.85rem; pointer-events: none; }
+        .input-field {
+            width: 100%; background: #0a0f1e; border: 1px solid #1f2937;
+            border-radius: 0.65rem; color: #f1f5f9;
+            padding: 0.8rem 1rem 0.8rem 2.4rem; font-size: 0.95rem;
+            outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input-field:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.15); }
+        .input-field::placeholder { color: #374151; }
+        .btn-login {
+            width: 100%; background: #16a34a; color: white;
+            font-weight: 800; font-size: 0.95rem; padding: 0.85rem;
+            border-radius: 0.65rem; border: none; cursor: pointer;
+            letter-spacing: 0.1em; margin-top: 0.5rem;
+            transition: background 0.2s, transform 0.1s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-login:hover:not(:disabled)  { background: #15803d; }
+        .btn-login:active:not(:disabled) { transform: scale(0.98); }
+        .btn-login:disabled { background: #1f2937; color: #4b5563; cursor: not-allowed; }
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.25);
+            border-top-color: white; border-radius: 50%;
+            animation: spin 0.7s linear infinite; flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .status-msg { font-size: 0.78rem; text-align: center; margin-top: 0.75rem; min-height: 1.1rem; color: #6b7280; }
+        .status-msg.ok  { color: #4ade80; }
+        .status-msg.err { color: #f87171; }
+        .divider { height: 1px; background: #1f2937; margin: 1.25rem 0; }
+        .pulse-dot {
+            display: inline-block; width: 7px; height: 7px;
+            background: #16a34a; border-radius: 50%;
+            animation: pdot 1.8s ease-in-out infinite; margin-right: 5px;
+        }
+        @keyframes pdot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+    </style>
+</head>
+<body>
+
+<div class="leaf-bg" id="leafBg"></div>
+
+<div class="card">
+
+    <div style="text-align:center; margin-bottom:1.75rem;">
+        <div style="font-size:2.8rem; margin-bottom:0.4rem;">🌿</div>
+        <div style="font-size:1.6rem; font-weight:900; letter-spacing:0.18em; color:#4ade80;">ECO BUZZ</div>
+        <div style="font-size:0.7rem; color:#6b7280; letter-spacing:0.12em; margin-top:2px;">TEAM LOGIN · 2K26</div>
+        <div style="height:2px; width:40px; background:#16a34a; border-radius:999px; margin:0.75rem auto 0;"></div>
+    </div>
+
+    <label class="input-label">Team Name</label>
+    <div class="input-wrap">
+        <i class="input-icon fas fa-users"></i>
+        <input id="teamName" type="text" class="input-field"
+            placeholder="e.g. Mera darthi"
+            autocomplete="off" autocorrect="off" spellcheck="false">
+    </div>
+
+    <label class="input-label">Team Leader Full Name</label>
+    <div class="input-wrap">
+        <i class="input-icon fas fa-user-tie"></i>
+        <input id="leaderName" type="text" class="input-field"
+            placeholder="e.g. Dasari Sai Balaji"
+            autocomplete="off" autocorrect="off" spellcheck="false">
+    </div>
+
+    <button id="loginBtn" class="btn-login" onclick="handleLogin()">LOGIN</button>
+    <div class="status-msg" id="statusMsg"></div>
+
+    <div class="divider"></div>
+    <div style="text-align:center;">
+        <span class="pulse-dot"></span>
+        <span style="font-size:0.72rem; color:#4b5563; letter-spacing:0.04em;">Register via Google Form before logging in</span>
+    </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="js/firebase-config.js"></script>
+
+<script>
+    // ── CONFIG — update this if you redeploy Apps Script ──
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFSnRjJTzxbL2gats5x4a3D59zYXBOToJfSDQjHK34xoxtL5iWntnudy7cTSTJDxCP/exec";
+
+    // ── FLOATING LEAVES ──
+    const LEAVES = ['🌿','🍃','🌱','🍀'];
+    const bg = document.getElementById('leafBg');
+    for (let i = 0; i < 16; i++) {
+        const l = document.createElement('span');
+        l.className = 'leaf';
+        l.textContent = LEAVES[i % LEAVES.length];
+        l.style.left = (Math.random() * 100) + 'vw';
+        l.style.fontSize = (1 + Math.random() * 1.2) + 'rem';
+        l.style.animationDuration = (14 + Math.random() * 14) + 's';
+        l.style.animationDelay    = (Math.random() * 18) + 's';
+        bg.appendChild(l);
+    }
+
+    // ── BUILD TEAM ID ──
+    // "Mera darthi" + "Dasari Sai Balaji" → "MERA_DARTHI_DSB"
+    function buildTeamId(teamName, leaderName) {
+        const tPart    = teamName.trim().toUpperCase().replace(/\s+/g, '_');
+        const initials = leaderName.trim().split(/\s+/).map(w => w[0].toUpperCase()).join('');
+        return tPart + '_' + initials;
+    }
+
+    function setStatus(msg, type = '') {
+        const el = document.getElementById('statusMsg');
+        el.textContent = msg;
+        el.className   = 'status-msg ' + type;
+    }
+
+    function setBtnLoading(loading) {
+        const btn = document.getElementById('loginBtn');
+        btn.disabled  = loading;
+        btn.innerHTML = loading
+            ? '<div class="spinner"></div><span>Verifying...</span>'
+            : 'LOGIN';
+    }
+
+    // ── MAIN LOGIN ──
+    async function handleLogin() {
+        const teamName   = document.getElementById('teamName').value.trim();
+        const leaderName = document.getElementById('leaderName').value.trim();
+
+        if (!teamName || !leaderName) {
+            setStatus('Please fill in both fields.', 'err');
+            return;
+        }
+
+        setBtnLoading(true);
+        setStatus('Checking registration...', '');
+
+        try {
+            // STEP 1 — verify against Google Sheet
+            const res = await fetch(APPS_SCRIPT_URL, {
+                method:  'POST',
+                body:    JSON.stringify({ teamName, teamLeadName: leaderName }),
+            });
+            const json = await res.json();
+
+            if (json.status !== 'success') {
+                setStatus('Team not found. Check your spelling.', 'err');
+                setBtnLoading(false);
+                return;
+            }
+
+            // STEP 2 — build Firebase key & extract data
+            const teamId = buildTeamId(teamName, leaderName);
+            const d      = json.data;          // full row from sheet
+            const headers = Object.keys(d);
+
+            // Parse team members dynamically (columns: Team member N Name / roll no.)
+            const members = [];
+            for (let i = 1; i <= 10; i++) {
+                const nameKey = headers.find(h => h.toLowerCase().includes(`team member ${i} name`));
+                const rollKey = headers.find(h => h.toLowerCase().includes(`team member ${i} roll`));
+                if (nameKey && d[nameKey]) {
+                    members.push({ name: d[nameKey], roll: rollKey ? d[rollKey] : '' });
+                }
+            }
+
+            setStatus('Creating session...', '');
+
+            // STEP 3 — generate session ID
+            const newSessionId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+            // STEP 4 — check if team already exists (preserve score)
+            const existingSnap = await window.db.ref(`teams/${teamId}`).once('value');
+            const existingScore = existingSnap.exists() ? existingSnap.val().score : undefined;
+
+            const teamData = {
+                name:        (d['Team name']           || teamName).trim(),
+                leaderName:  (d['Team lead name']      || leaderName).trim(),
+                leaderRoll:   d['Team lead roll no.']  || '',
+                leaderPhone:  d['Team lead phone number'] || '',
+                branch:       d['Branch'] || '',
+                year:         d['Year']   || '',
+                members,
+                score:        existingScore !== undefined ? existingScore : 20,
+                sessionId:    newSessionId,
+                lastActive:   0,
+            };
+
+            // STEP 5 — write to Firebase
+            await window.db.ref(`teams/${teamId}`).update(teamData);
+
+            // STEP 6 — save session locally & redirect
+            localStorage.setItem('quiz_teamId',    teamId);
+            localStorage.setItem('quiz_sessionId', newSessionId);
+
+            setStatus('Login successful! Entering...', 'ok');
+            setTimeout(() => { window.location.href = 'index.html'; }, 700);
+
+        } catch (err) {
+            console.error(err);
+            setStatus('Connection error. Check your internet & try again.', 'err');
+            setBtnLoading(false);
+        }
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+</script>
+</body>
+</html>
